@@ -44,9 +44,11 @@
  * - Shift  + Pitch Shift  = fine tune the pitch +/-0.01
  * -          Half         = halve loop length
  * - Shift  + Half         = jump to start of track (while not playing)
+ * - Shift  + Half         = beatjump backward (while playing)
  * - Scroll + Half         = seek backward (while not playing)
  * -          Double       = double loop length
  * - Shift  + Double       = jump to end of track (while not playing)
+ * - Shift  + Double       = beatjump forward (while playing)
  * - Scroll + Double       = seek forward (while not playing)
  * -          Auto Tempo   = toggle sync (push-and-hold)
  * -          Keylock      = toggle keylock
@@ -557,7 +559,9 @@ VestaxVCI300.Deck.prototype.restoreValues = function() {
 VestaxVCI300.Deck.prototype.connectControls = function() {
     VestaxVCI300.connectControl(this.group, "rateRange", this.onRateRangeValueCB);
     VestaxVCI300.connectControl(this.group, "loop_halve", this.onLoopHalveValueCB);
+    VestaxVCI300.connectControl(this.group, "beatjump_backward", this.onLoopHalveValueCB);
     VestaxVCI300.connectControl(this.group, "loop_double", this.onLoopDoubleValueCB);
+    VestaxVCI300.connectControl(this.group, "beatjump_forward", this.onLoopDoubleValueCB);
     VestaxVCI300.connectControl(this.group, "sync_enabled", this.onSyncValueCB);
     VestaxVCI300.connectControl(this.group, "reverseroll", this.onCensorFilterValueCB);
     VestaxVCI300.connectControl(this.filterGroup, "enabled", this.onCensorFilterValueCB);
@@ -822,6 +826,9 @@ VestaxVCI300.onCueButton = function(channel, control, value, status, group) {
                     }
                 }
             }
+        }
+        if (VestaxVCI300.scrollState) {
+            engine.setValue(group, "bpm_tap", VestaxVCI300.getButtonPressed(value));
         } else {
             engine.setValue(group, "cue_default", VestaxVCI300.getButtonPressed(value));
         }
@@ -842,6 +849,9 @@ VestaxVCI300.onPlayButton = function(channel, control, value, status, group) {
                 } else {
                     engine.setValue(group, "play_stutter", true);
                 }
+            }
+            if (VestaxVCI300.scrollState) {
+                engine.setValue(group, "beats_translate_curpos", VestaxVCI300.getButtonPressed(value));
             } else {
                 VestaxVCI300.onToggleButton(group, "play", value);
             }
@@ -902,7 +912,7 @@ VestaxVCI300.onHalfPrevButton = function(channel, control, value, status, group)
     var reset = true;
     if (VestaxVCI300.scrollState) {
         if (deck.isPlaying()) {
-            engine.setValue(group, "back", false);
+            engine.setValue(group, "back", false); // DO NOT back
         } else {
             engine.setValue(group, "back", VestaxVCI300.getButtonPressed(value));
             if (VestaxVCI300.getButtonPressed(value)) {
@@ -920,6 +930,9 @@ VestaxVCI300.onHalfPrevButton = function(channel, control, value, status, group)
                     deck.autoLoopHalfLED.trigger(true);
                     trigger = false;
                 }
+            } else {
+                engine.setValue(group, "beatjump_backward", VestaxVCI300.getButtonPressed(value));
+                trigger = false;
             }
         } else {
             if (VestaxVCI300.getButtonPressed(value) && (0 < deck.autoLoopBeatsIndex)) {
@@ -962,6 +975,9 @@ VestaxVCI300.onDoubleNextButton = function(channel, control, value, status, grou
                     deck.autoLoopDoubleLED.trigger(true);
                     trigger = false;
                 }
+            } else {
+                engine.setValue(group, "beatjump_forward", VestaxVCI300.getButtonPressed(value));
+                trigger = false;
             }
         } else {
             if (VestaxVCI300.getButtonPressed(value) && (deck.autoLoopBeatsIndex < (VestaxVCI300.autoLoopBeatsArray.length - 1))) {
